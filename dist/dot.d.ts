@@ -15,7 +15,7 @@ import type { Plugin, ServiceRecord, Token, WireNeeds } from '@arki/dot/plugin';
 import type { AnyFeature, SlicePayloads } from './index.js';
 type FeatureTokenOf<F extends AnyFeature> = Token<SlicePayloads<F['use']>, `feature.${F['name']}`>;
 type BootFnOf<F extends AnyFeature> = Exclude<F['boot'], undefined>;
-type NonVoidProvides<T> = [Exclude<T, void>] extends [never] ? Record<never, never> : Exclude<T, void> extends ServiceRecord ? Exclude<T, void> : Record<never, never>;
+type NonVoidProvides<T> = [Exclude<T, void>] extends [never] ? Record<never, never> : Exclude<T, void> extends ServiceRecord ? string extends keyof Exclude<T, void> ? Record<never, never> : Exclude<T, void> : Record<never, never>;
 /**
  * What the feature's boot escape hatch provides. `boot` is an optional
  * property, so `undefined` must be split off before matching the

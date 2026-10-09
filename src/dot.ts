@@ -33,7 +33,15 @@ type BootFnOf<F extends AnyFeature> = Exclude<F['boot'], undefined>;
 type NonVoidProvides<T> = [Exclude<T, void>] extends [never]
   ? Record<never, never>
   : Exclude<T, void> extends ServiceRecord
-    ? Exclude<T, void>
+    ? // A boot that returns only `void` gives `defineFeature` no inference
+      // candidate for TProvides, so TS falls back to the constraint — an
+      // open `ServiceRecord` with a string index. That would read as
+      // "provides every key" and collide with everything already mounted
+      // (`db`, `kv`, …). Real provides always have literal keys, so an
+      // index-signature record can only be that fallback: treat it as empty.
+      string extends keyof Exclude<T, void>
+      ? Record<never, never>
+      : Exclude<T, void>
     : Record<never, never>;
 
 /**
