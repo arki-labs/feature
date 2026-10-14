@@ -88,13 +88,51 @@ export declare function defineFeature<const TName extends string, TNeeds extends
     /** Runtime services (escape hatch) — merged with the slice provide. */
     readonly boot?: (services: CtxOf<TNeeds> & KernelCtx) => MaybePromise<TProvides | void>;
 }): Feature<TName, TNeeds, TProvides, TUse, TRouter, TRepos>;
+export declare const FEATURE_ERROR_CODES: {
+    readonly duplicateRouterKey: 'FEATURE_E001';
+    readonly duplicateRepoKey: 'FEATURE_E002';
+};
+export type FeatureErrorCode = (typeof FEATURE_ERROR_CODES)[keyof typeof FEATURE_ERROR_CODES];
+/**
+ * A mistake in how features are composed. The types reject the same
+ * mistake at compile time; this is the backstop for code that skips them.
+ */
+export declare class FeatureError extends Error {
+    readonly code: FeatureErrorCode;
+    readonly remediation: string;
+    constructor(args: {
+        readonly code: FeatureErrorCode;
+        readonly message: string;
+        readonly remediation: string;
+    });
+}
+/** The keys a record names one by one. An index signature (`Record<string, X>`) names none. */
+type LiteralKeys<R> = keyof {
+    [K in keyof R as string extends K ? never : number extends K ? never : symbol extends K ? never : K]: R[K];
+};
+/** Keys that more than one record in the tuple names. `never` when every key is unique. */
+type DuplicateKeys<TRecords extends readonly unknown[], TSeen extends PropertyKey = never> = TRecords extends readonly [
+    infer Head,
+    ...infer Tail
+] ? (LiteralKeys<Head> & TSeen) | DuplicateKeys<Tail, TSeen | LiteralKeys<Head>> : never;
+type RoutersOf<T extends readonly AnyFeature[]> = {
+    readonly [I in keyof T]: T[I] extends AnyFeature ? T[I]['router'] : never;
+};
+type ReposOf<T extends readonly AnyFeature[]> = {
+    readonly [I in keyof T]: T[I] extends AnyFeature ? T[I]['repos'] : never;
+};
+/**
+ * `unknown` when no key repeats. Otherwise a property the feature list
+ * cannot have, so the call does not compile and the error names the keys.
+ */
+type Distinct<TKeys extends PropertyKey, TLabel extends string> = [TKeys] extends [never] ? unknown : Readonly<Record<TLabel, TKeys>>;
 export type ComposedRouter<T extends readonly AnyFeature[]> = UnionToIntersection<T[number]['router']>;
 /**
  * Fold the features' router fragments into one router — value AND type
- * from the single list. A mount key claimed by two features throws at
- * module load.
+ * from the single list. A mount key claimed by two features is a compile
+ * error, and throws `FeatureError` at module load for code that skips types.
  */
-export declare function composeRouter<const T extends readonly AnyFeature[]>(features: T): ComposedRouter<T>;
+export declare function composeRouter<const T extends readonly AnyFeature[]>(features: T & NoInfer<Distinct<DuplicateKeys<RoutersOf<T>>, 'ARKI_FEATURE: duplicate router mount keys'>>): ComposedRouter<T>;
 type MergedRepoFactories<T extends readonly AnyFeature[]> = UnionToIntersection<T[number]['repos']>;
 /**
  * The repo record a feature tuple composes. An app's `AppRepo` should
@@ -118,7 +156,11 @@ type RepoDbParamOf<F extends AnyFeature> = [RepoFactoryOf<F>] extends [never] ? 
 export type RepoDatabaseOf<T extends readonly AnyFeature[]> = {
     [I in keyof T]: (database: RepoDbParamOf<T[I]>) => void;
 }[number] extends (database: infer TDb) => void ? TDb : never;
-/** Fold the features' repo factories over one db handle. */
-export declare function composeRepos<const T extends readonly AnyFeature[]>(features: T, database: RepoDatabaseOf<T>): ComposedRepos<T>;
+/**
+ * Fold the features' repo factories over one db handle. A repo key claimed
+ * by two features is a compile error, and throws `FeatureError` for code
+ * that skips types.
+ */
+export declare function composeRepos<const T extends readonly AnyFeature[]>(features: T & NoInfer<Distinct<DuplicateKeys<ReposOf<T>>, 'ARKI_FEATURE: duplicate repo keys'>>, database: RepoDatabaseOf<T>): ComposedRepos<T>;
 export {};
 //# sourceMappingURL=index.d.ts.map
